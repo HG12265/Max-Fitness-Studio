@@ -1,0 +1,5 @@
+{
+  "name": "Max Fitness Studio",
+  "description": "A full-stack gym management system built with React, Node.js, and MongoDB for tracking registrations, memberships, and trainer assignments.",
+  "requestFramePermissions": []
+}
