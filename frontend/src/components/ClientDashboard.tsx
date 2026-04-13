@@ -12,14 +12,16 @@ import {
   XCircle,
   ArrowRight
 } from 'lucide-react';
-import { motion } from 'motion/react';
+import { AnimatePresence, motion } from 'motion/react';
 import { isAfter, parseISO, format } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { cn } from '../lib/utils';
+import { cn, generateDietPlan, generateWorkoutPlan } from '../lib/utils';
 
 export default function ClientDashboard() {
   const [clientData, setClientData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dietOpen, setDietOpen] = useState(false);
+  const [workoutOpen, setWorkoutOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -78,6 +80,10 @@ export default function ClientDashboard() {
   }
 
   const isActive = clientData.end_date ? isAfter(parseISO(clientData.end_date), new Date()) : false;
+  const dietPlanText = clientData.diet_plan ? clientData.diet_plan : generateDietPlan(clientData);
+  const dietPlanSections = dietPlanText.split('\n\n').map((section: string) => section.trim()).filter(Boolean);
+  const workoutPlanText = generateWorkoutPlan(clientData);
+  const workoutPlanSections = workoutPlanText.split('\n\n').map((section: string) => section.trim()).filter(Boolean);
 
   return (
     <div className="space-y-8">
@@ -161,6 +167,136 @@ export default function ClientDashboard() {
               </div>
             )}
           </div>
+
+          <div className="grid gap-6 lg:grid-cols-2">
+            <div className="bg-zinc-900/30 border border-zinc-800 rounded-2xl p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <HeartPulse className="w-5 h-5 text-red-500" />
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">Diet Chart</h3>
+                    <p className="text-zinc-500 text-sm">Tap below to open your full personalized meal plan.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setDietOpen(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-red-700"
+                >
+                  View Diet Plan
+                </button>
+              </div>
+            </div>
+
+            <div className="bg-zinc-900/30 border border-zinc-800 rounded-2xl p-8">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                <div className="flex items-center gap-3">
+                  <Dumbbell className="w-5 h-5 text-red-500" />
+                  <div>
+                    <h3 className="text-xl font-semibold text-white">Workout Chart</h3>
+                    <p className="text-zinc-500 text-sm">Open a custom training plan based on your membership length.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={() => setWorkoutOpen(true)}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
+                >
+                  View Workout Plan
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <AnimatePresence>
+            {dietOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+                onClick={() => setDietOpen(false)}
+              >
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mx-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl"
+                >
+                  <div className="flex items-start justify-between gap-4 border-b border-zinc-800 bg-zinc-900/90 px-8 py-6">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-rose-500">Diet Plan</p>
+                      <h2 className="mt-2 text-3xl font-bold text-white">Complete Nutrition Guide</h2>
+                      <p className="mt-2 text-sm text-zinc-400">A structured and professional breakdown of your meals and recommendations.</p>
+                    </div>
+                    <button
+                      onClick={() => setDietOpen(false)}
+                      className="rounded-full bg-zinc-800/80 p-3 text-zinc-300 transition hover:bg-zinc-700"
+                    >
+                      <XCircle className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="max-h-[75vh] overflow-y-auto px-8 py-8 text-zinc-300">
+                    {dietPlanSections.map((section, index) => (
+                      <div key={index} className={index > 0 ? 'mt-6' : ''}>
+                        {section.split('\n').map((line, lineIndex) => (
+                          <p key={lineIndex} className={line.startsWith('-') ? 'text-sm leading-7 text-zinc-300' : 'text-base font-semibold text-white'}>
+                            {line.replace(/^-\s*/, '')}
+                          </p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          <AnimatePresence>
+            {workoutOpen && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
+                onClick={() => setWorkoutOpen(false)}
+              >
+                <motion.div
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  animate={{ scale: 1, opacity: 1 }}
+                  exit={{ scale: 0.95, opacity: 0 }}
+                  transition={{ duration: 0.2 }}
+                  onClick={(e) => e.stopPropagation()}
+                  className="mx-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl"
+                >
+                  <div className="flex items-start justify-between gap-4 border-b border-zinc-800 bg-zinc-900/90 px-8 py-6">
+                    <div>
+                      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-500">Workout Plan</p>
+                      <h2 className="mt-2 text-3xl font-bold text-white">Custom Training Chart</h2>
+                      <p className="mt-2 text-sm text-zinc-400">Tailored weekly structure for your membership plan and fitness goal.</p>
+                    </div>
+                    <button
+                      onClick={() => setWorkoutOpen(false)}
+                      className="rounded-full bg-zinc-800/80 p-3 text-zinc-300 transition hover:bg-zinc-700"
+                    >
+                      <XCircle className="w-5 h-5" />
+                    </button>
+                  </div>
+                  <div className="max-h-[75vh] overflow-y-auto px-8 py-8 text-zinc-300">
+                    {workoutPlanSections.map((section, index) => (
+                      <div key={index} className={index > 0 ? 'mt-6' : ''}>
+                        {section.split('\n').map((line, lineIndex) => (
+                          <p key={lineIndex} className={line.startsWith('-') ? 'text-sm leading-7 text-zinc-300' : 'text-base font-semibold text-white'}>
+                            {line.replace(/^-\s*/, '')}
+                          </p>
+                        ))}
+                      </div>
+                    ))}
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* Sidebar Info */}

@@ -111,5 +111,15 @@ export const api = {
     });
     if (!res.ok) throw new Error((await res.json()).error);
     return res.json();
+  },
+
+  chatbot: async (message: string) => {
+    const res = await fetch(`${API_URL}/chatbot`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ message })
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    return res.json();
   }
 };

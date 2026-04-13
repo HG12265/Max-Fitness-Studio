@@ -7,7 +7,8 @@ import {
   LogOut, 
   Menu, 
   X, 
-  Dumbbell 
+  Dumbbell,
+  MessageSquare
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
@@ -41,6 +42,7 @@ export default function Layout({ children, user, role }: LayoutProps) {
 
   const clientNavItems = [
     { to: '/dashboard', icon: LayoutDashboard, label: 'My Membership' },
+    { to: '/dashboard/chat', icon: MessageSquare, label: 'Gym Chat' },
   ];
 
   const navItems = role === 'admin' ? adminNavItems : clientNavItems;

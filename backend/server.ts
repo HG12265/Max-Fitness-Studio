@@ -9,12 +9,17 @@ import { User } from './src/models/User.ts';
 import { Client } from './src/models/Client.ts';
 import { Trainer } from './src/models/Trainer.ts';
 import { sendWelcomeEmail } from './src/lib/email.ts';
+import { generateDietPlan } from './src/lib/diet.ts';
+import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
+const GEMINI_API_KEY = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY || undefined });
+
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT ? Number(process.env.PORT) : 3000;
 const JWT_SECRET = process.env.JWT_SECRET || 'fallback_secret';
 
 app.use(cors());
@@ -142,10 +147,12 @@ app.get('/api/clients', authenticateToken, async (req: any, res) => {
 
 app.post('/api/clients', authenticateToken, async (req: any, res) => {
   try {
-    const client = new Client({
+    const clientData = {
       ...req.body,
-      uid: req.user.id
-    });
+      uid: req.user.id,
+      diet_plan: generateDietPlan(req.body)
+    };
+    const client = new Client(clientData);
     await client.save();
     
     // Send welcome email if email is provided
@@ -173,7 +180,11 @@ app.get('/api/clients/:id', authenticateToken, async (req, res) => {
 
 app.put('/api/clients/:id', authenticateToken, async (req, res) => {
   try {
-    const client = await Client.findByIdAndUpdate(req.params.id, req.body, { new: true });
+    const updatedData = {
+      ...req.body,
+      diet_plan: generateDietPlan(req.body)
+    };
+    const client = await Client.findByIdAndUpdate(req.params.id, updatedData, { new: true });
     res.json(client);
   } catch (err: any) {
     res.status(500).json({ error: err.message });
@@ -227,16 +238,46 @@ app.delete('/api/trainers/:id', authenticateToken, isAdmin, async (req, res) => 
   }
 });
 
+app.post('/api/chatbot', authenticateToken, async (req, res) => {
+  try {
+    if (!GEMINI_API_KEY) {
+      return res.status(500).json({ error: 'Gemini API key is not configured.' });
+    }
+
+    const { message } = req.body;
+    if (!message || typeof message !== 'string') {
+      return res.status(400).json({ error: 'Message is required.' });
+    }
+
+    const systemPrompt = `You are a professional gym coach for Max Fitness Studio. Respond in plain text only, without markdown formatting. Use clear sections, numbered steps, and bullet points. Focus only on gym workouts, training plans, diet, nutrition, recovery, and healthy food choices. If the user asks an unrelated question, politely explain that you only provide gym and fitness support.`;
+    const prompt = `${systemPrompt}\n\nUser: ${message}`;
+
+    const response = await ai.models.generateContent({
+      model: 'gemini-flash-latest',
+      contents: prompt,
+      temperature: 0.2,
+      candidate_count: 1
+    });
+
+    res.json({ answer: response.text || 'Sorry, I could not generate a response right now.' });
+  } catch (err: any) {
+    console.error('Chatbot error:', err);
+    res.status(500).json({ error: err.message || 'Chatbot request failed.' });
+  }
+});
+
 // --- VITE MIDDLEWARE ---
 async function startServer() {
   if (process.env.NODE_ENV !== 'production') {
+    const frontendRoot = path.join(process.cwd(), 'frontend');
     const vite = await createViteServer({
+      root: frontendRoot,
       server: { middlewareMode: true },
       appType: 'spa',
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), 'frontend', 'dist');
     if (fs.existsSync(distPath)) {
       app.use(express.static(distPath));
       app.get('*', (req, res) => {

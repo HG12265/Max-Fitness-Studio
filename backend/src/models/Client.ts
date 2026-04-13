@@ -21,6 +21,7 @@ const clientSchema = new mongoose.Schema({
   emergency_contact: { type: String },
   emergency_phone: { type: String },
   trainer: { type: String },
+  diet_plan: { type: String },
   uid: { type: mongoose.Schema.Types.ObjectId, ref: 'User' },
   createdAt: { type: Date, default: Date.now }
 });

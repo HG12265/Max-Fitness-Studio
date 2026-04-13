@@ -9,6 +9,7 @@ import ClientDashboard from './components/ClientDashboard';
 import ClientForm from './components/ClientForm';
 import ClientList from './components/ClientList';
 import TrainerManagement from './components/TrainerManagement';
+import GymChatbot from './components/GymChatbot';
 import { Loader2 } from 'lucide-react';
 
 export default function App() {
@@ -76,6 +77,7 @@ export default function App() {
                     <>
                       <Route path="/" element={<ClientDashboard />} />
                       <Route path="/join" element={<ClientForm isClientSelfJoin={true} />} />
+                      <Route path="/chat" element={<GymChatbot />} />
                     </>
                   )}
                   <Route path="*" element={<Navigate to="/" replace />} />
