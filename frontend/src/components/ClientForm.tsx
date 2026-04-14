@@ -27,7 +27,7 @@ export default function ClientForm({ isClientSelfJoin = false }: ClientFormProps
     address: '',
     city: '',
     pincode: '',
-    plan: 'Monthly',
+    plan: '',
     start_date: format(new Date(), 'yyyy-MM-dd'),
     end_date: '',
     fee: 0,
@@ -118,6 +118,7 @@ export default function ClientForm({ isClientSelfJoin = false }: ClientFormProps
         await api.updateClient(id, formData);
       } else {
         await api.createClient(formData);
+        window.dispatchEvent(new Event('client-updated'));
       }
       navigate('/dashboard');
     } catch (err: any) {
@@ -140,7 +141,7 @@ export default function ClientForm({ isClientSelfJoin = false }: ClientFormProps
         address: '',
         city: '',
         pincode: '',
-        plan: 'Monthly',
+        plan: '',
         start_date: format(new Date(), 'yyyy-MM-dd'),
         end_date: '',
         fee: 0,
@@ -329,15 +330,17 @@ export default function ClientForm({ isClientSelfJoin = false }: ClientFormProps
             <div className="space-y-2">
               <label className="text-sm font-medium text-zinc-400">Membership Plan *</label>
               <select
+                required
                 name="plan"
                 value={formData.plan}
                 onChange={handleChange}
                 className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-4 py-2.5 text-white focus:border-red-500 outline-none transition-all"
               >
-                <option>Monthly</option>
-                <option>Quarterly</option>
-                <option>Half-Yearly</option>
-                <option>Yearly</option>
+                <option value="">Select plan</option>
+                <option value="Monthly">Monthly</option>
+                <option value="Quarterly">Quarterly</option>
+                <option value="Half-Yearly">Half-Yearly</option>
+                <option value="Yearly">Yearly</option>
               </select>
             </div>
             <div className="space-y-2">

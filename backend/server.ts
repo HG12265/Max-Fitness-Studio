@@ -5,11 +5,11 @@ import jwt from 'jsonwebtoken';
 import path from 'path';
 import fs from 'fs';
 import { createServer as createViteServer } from 'vite';
-import { User } from './src/models/User.ts';
-import { Client } from './src/models/Client.ts';
-import { Trainer } from './src/models/Trainer.ts';
-import { sendWelcomeEmail } from './src/lib/email.ts';
-import { generateDietPlan } from './src/lib/diet.ts';
+import { User } from './src/models/User.js';
+import { Client } from './src/models/Client.js';
+import { Trainer } from './src/models/Trainer.js';
+import { sendWelcomeEmail } from './src/lib/email.js';
+import { generateDietPlan } from './src/lib/diet.js';
 import { GoogleGenAI } from '@google/genai';
 import dotenv from 'dotenv';
 
@@ -191,6 +191,162 @@ app.put('/api/clients/:id', authenticateToken, async (req, res) => {
   }
 });
 
+const buildWorkoutPrompt = (client: any, plan: string, period: string) => {
+  const weight = Number(client.weight) || 0;
+  const height = Number(client.height) || 0;
+  const bmi = height > 0 ? Number((weight / ((height / 100) ** 2)).toFixed(1)) : 0;
+  const goal = bmi >= 25 ? 'Fat Loss' : bmi < 18.5 ? 'Muscle Gain' : 'Strength & Tone';
+  const medicalNote = client.medical_condition ? `The client has ${client.medical_condition}. Adjust exercises for safety and recovery.` : '';
+
+  return `You are a professional gym coach for Max Fitness Studio. Create a concise personalized workout chart for the client based on the following details:
+
+- Name: ${client.name}
+- Age: ${client.age || 'N/A'}
+- Gender: ${client.gender || 'N/A'}
+- Height: ${client.height || 'N/A'} cm
+- Weight: ${client.weight || 'N/A'} kg
+- Current membership plan: ${plan}
+- Requested period: ${period}
+- Goal: ${goal}
+- ${medicalNote}
+
+Return the workout chart in plain text only, with a strong focus on exercises, sets, reps, weekly structure, and recovery guidance. Use numbered bullet points, no markdown formatting, and keep it easy to follow.`;
+};
+
+const generateLocalWorkoutChart = (client: any, plan: string, period: string) => {
+  const weight = Number(client.weight) || 0;
+  const height = Number(client.height) || 0;
+  const bmi = height > 0 ? Number((weight / ((height / 100) ** 2)).toFixed(1)) : 0;
+  const goal = bmi >= 25 ? 'Fat Loss' : bmi < 18.5 ? 'Muscle Gain' : 'Strength & Tone';
+  const planLabel = plan || 'Monthly';
+  const phase = period.startsWith('Week') ? 'Weekly' : 'Monthly';
+  const recoveryNote = client.medical_condition ? ` Since you have ${client.medical_condition}, keep intensity moderate and prioritize recovery.` : '';
+
+  return `Personalized Workout Chart (${goal}):
+
+- Membership plan: ${planLabel}
+- Focus: ${goal} progress with a ${phase.toLowerCase()} training rhythm.
+- Period: ${period}
+- Notes:${recoveryNote}
+
+Training structure:
+- 1. Strength session: compound lifts, core stability, and controlled movement.
+- 2. Cardio or conditioning: steady-state cardio or interval work.
+- 3. Mobility and recovery: stretching, foam rolling, and joint health.
+
+${phase} details:
+${phase === 'Weekly' ?
+`- ${period}: upper body strength, lower body strength, and active recovery.` :
+`- ${period}: progressive training volume with one strength day, one conditioning day, and one mobility day each month.`}
+
+Guidance:
+- Start with moderate loads and focus on form.
+- Increase intensity gradually each ${phase === 'Weekly' ? 'week' : 'month'}.
+- Stay hydrated and get enough rest between sessions.`;
+};
+
+app.post('/api/clients/:id/workout-chart', authenticateToken, async (req: any, res: any) => {
+  try {
+    const { period } = req.body;
+
+    const client = await Client.findById(req.params.id);
+    if (!client) return res.status(404).json({ error: 'Client not found' });
+    if (req.user.role !== 'admin' && client.uid?.toString() !== req.user.id) {
+      return res.status(403).json({ error: 'Access denied' });
+    }
+
+    const plan = client.plan;
+    if (!plan) {
+      return res.status(400).json({ error: 'Membership plan is required to generate a workout chart.' });
+    }
+    if (!period) {
+      return res.status(400).json({ error: 'Period is required.' });
+    }
+    if (req.body.plan && req.body.plan !== plan) {
+      return res.status(400).json({ error: 'Cannot change membership plan for this workout chart.' });
+    }
+
+    const key = `${plan}:${period}`;
+    const existingChart = client.workout_charts?.find((entry: any) => entry.key === key);
+    const prompt = buildWorkoutPrompt(client, plan, period);
+    let content = '';
+    let usedFallback = false;
+    let source = 'gemini';
+
+    if (GEMINI_API_KEY) {
+      try {
+        const response = await ai.models.generateContent({
+          model: 'gemini-flash-latest',
+          contents: prompt,
+          temperature: 0.2,
+          candidate_count: 1
+        } as any);
+        content = response.text || '';
+      } catch (err: any) {
+        console.error('Gemini workout generation failed, falling back to cache or local:', err);
+        if (existingChart && existingChart.content) {
+          source = 'cached';
+          content = existingChart.content;
+        } else {
+          source = 'fallback';
+          content = generateLocalWorkoutChart(client, plan, period);
+        }
+        usedFallback = true;
+      }
+    } else if (existingChart && existingChart.content) {
+      source = 'cached';
+      content = existingChart.content;
+      usedFallback = true;
+    } else {
+      source = 'fallback';
+      content = generateLocalWorkoutChart(client, plan, period);
+      usedFallback = true;
+    }
+
+    if (!content) {
+      source = 'fallback';
+      content = generateLocalWorkoutChart(client, plan, period);
+      usedFallback = true;
+    }
+
+    const chartEntry = {
+      key,
+      membership_plan: plan,
+      period,
+      content,
+      createdAt: new Date()
+    };
+
+    if (source === 'gemini' && existingChart) {
+      await Client.findOneAndUpdate(
+        { _id: req.params.id, 'workout_charts.key': key },
+        {
+          $set: {
+            'workout_charts.$.content': content,
+            'workout_charts.$.createdAt': new Date()
+          }
+        },
+        { returnDocument: 'after' }
+      );
+    } else if (source === 'gemini') {
+      await Client.findByIdAndUpdate(
+        req.params.id,
+        { $push: { workout_charts: chartEntry } },
+        { returnDocument: 'after' }
+      );
+    }
+
+    if (source !== 'gemini' && existingChart) {
+      return res.json({ ...existingChart.toObject ? existingChart.toObject() : existingChart, cached: true, fallback: usedFallback });
+    }
+
+    res.json({ ...chartEntry, cached: source !== 'gemini', fallback: usedFallback });
+  } catch (err: any) {
+    console.error('Workout chart error:', err);
+    res.status(500).json({ error: err.message || 'Workout chart request failed.' });
+  }
+});
+
 app.delete('/api/clients/:id', authenticateToken, isAdmin, async (req, res) => {
   try {
     await Client.findByIdAndDelete(req.params.id);
@@ -257,7 +413,7 @@ app.post('/api/chatbot', authenticateToken, async (req, res) => {
       contents: prompt,
       temperature: 0.2,
       candidate_count: 1
-    });
+    } as any);
 
     res.json({ answer: response.text || 'Sorry, I could not generate a response right now.' });
   } catch (err: any) {

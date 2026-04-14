@@ -1,4 +1,4 @@
-import { ReactNode, useState } from 'react';
+import { ReactNode, useEffect, useState } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { 
   LayoutDashboard, 
@@ -12,6 +12,7 @@ import {
 } from 'lucide-react';
 import { cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
+import { api } from '../services/api';
 
 interface LayoutProps {
   children: ReactNode;
@@ -21,7 +22,30 @@ interface LayoutProps {
 
 export default function Layout({ children, user, role }: LayoutProps) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [hasClient, setHasClient] = useState(false);
   const navigate = useNavigate();
+
+  useEffect(() => {
+    const loadClientStatus = async () => {
+      if (role === 'client') {
+        try {
+          const clients = await api.getClients();
+          setHasClient(Array.isArray(clients) && clients.length > 0);
+        } catch (err) {
+          console.error('Failed to verify client record:', err);
+          setHasClient(false);
+        }
+      }
+    };
+
+    const handleClientUpdated = () => {
+      loadClientStatus();
+    };
+
+    loadClientStatus();
+    window.addEventListener('client-updated', handleClientUpdated);
+    return () => window.removeEventListener('client-updated', handleClientUpdated);
+  }, [role]);
 
   const handleLogout = async () => {
     try {
@@ -40,7 +64,11 @@ export default function Layout({ children, user, role }: LayoutProps) {
     { to: '/dashboard/trainers', icon: Dumbbell, label: 'Manage Trainers' },
   ];
 
-  const clientNavItems = [
+  const clientNavItems = hasClient ? [
+    { to: '/dashboard', icon: LayoutDashboard, label: 'My Membership' },
+    { to: '/dashboard/workouts', icon: Dumbbell, label: 'Workout Chart' },
+    { to: '/dashboard/chat', icon: MessageSquare, label: 'Gym Chat' },
+  ] : [
     { to: '/dashboard', icon: LayoutDashboard, label: 'My Membership' },
     { to: '/dashboard/chat', icon: MessageSquare, label: 'Gym Chat' },
   ];

@@ -13,15 +13,14 @@ import {
   ArrowRight
 } from 'lucide-react';
 import { AnimatePresence, motion } from 'motion/react';
-import { isAfter, parseISO, format } from 'date-fns';
+import { isAfter, parseISO } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { cn, generateDietPlan, generateWorkoutPlan } from '../lib/utils';
+import { cn, generateDietPlan } from '../lib/utils';
 
 export default function ClientDashboard() {
   const [clientData, setClientData] = useState<any | null>(null);
   const [loading, setLoading] = useState(true);
   const [dietOpen, setDietOpen] = useState(false);
-  const [workoutOpen, setWorkoutOpen] = useState(false);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -82,8 +81,6 @@ export default function ClientDashboard() {
   const isActive = clientData.end_date ? isAfter(parseISO(clientData.end_date), new Date()) : false;
   const dietPlanText = clientData.diet_plan ? clientData.diet_plan : generateDietPlan(clientData);
   const dietPlanSections = dietPlanText.split('\n\n').map((section: string) => section.trim()).filter(Boolean);
-  const workoutPlanText = generateWorkoutPlan(clientData);
-  const workoutPlanSections = workoutPlanText.split('\n\n').map((section: string) => section.trim()).filter(Boolean);
 
   return (
     <div className="space-y-8">
@@ -116,8 +113,8 @@ export default function ClientDashboard() {
                 </div>
                 <h3 className="font-semibold text-white">Current Plan</h3>
               </div>
-              <p className="text-2xl font-bold text-white mb-1">{clientData.plan}</p>
-              <p className="text-zinc-500 text-sm">Started on {clientData.start_date}</p>
+              <p className="text-2xl font-bold text-white mb-1">{clientData.plan || 'Not selected'}</p>
+              <p className="text-zinc-500 text-sm">Started on {clientData.start_date || 'Not set'}</p>
             </motion.div>
 
             <motion.div 
@@ -132,7 +129,7 @@ export default function ClientDashboard() {
                 </div>
                 <h3 className="font-semibold text-white">Valid Until</h3>
               </div>
-              <p className="text-2xl font-bold text-white mb-1">{clientData.end_date}</p>
+              <p className="text-2xl font-bold text-white mb-1">{clientData.end_date || 'Not set'}</p>
               <p className="text-zinc-500 text-sm">Renewal required soon</p>
             </motion.div>
           </div>
@@ -197,10 +194,10 @@ export default function ClientDashboard() {
                   </div>
                 </div>
                 <button
-                  onClick={() => setWorkoutOpen(true)}
+                  onClick={() => navigate('/dashboard/workouts')}
                   className="inline-flex items-center justify-center gap-2 rounded-2xl bg-emerald-600 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-700"
                 >
-                  View Workout Plan
+                  View Workout Chart
                 </button>
               </div>
             </div>
@@ -241,53 +238,7 @@ export default function ClientDashboard() {
                       <div key={index} className={index > 0 ? 'mt-6' : ''}>
                         {section.split('\n').map((line, lineIndex) => (
                           <p key={lineIndex} className={line.startsWith('-') ? 'text-sm leading-7 text-zinc-300' : 'text-base font-semibold text-white'}>
-                            {line.replace(/^-\s*/, '')}
-                          </p>
-                        ))}
-                      </div>
-                    ))}
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          <AnimatePresence>
-            {workoutOpen && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 z-50 overflow-y-auto bg-black/80 p-4 backdrop-blur-sm"
-                onClick={() => setWorkoutOpen(false)}
-              >
-                <motion.div
-                  initial={{ scale: 0.95, opacity: 0 }}
-                  animate={{ scale: 1, opacity: 1 }}
-                  exit={{ scale: 0.95, opacity: 0 }}
-                  transition={{ duration: 0.2 }}
-                  onClick={(e) => e.stopPropagation()}
-                  className="mx-auto flex w-full max-w-3xl flex-col overflow-hidden rounded-[2rem] border border-zinc-800 bg-zinc-950 shadow-2xl"
-                >
-                  <div className="flex items-start justify-between gap-4 border-b border-zinc-800 bg-zinc-900/90 px-8 py-6">
-                    <div>
-                      <p className="text-sm font-semibold uppercase tracking-[0.2em] text-emerald-500">Workout Plan</p>
-                      <h2 className="mt-2 text-3xl font-bold text-white">Custom Training Chart</h2>
-                      <p className="mt-2 text-sm text-zinc-400">Tailored weekly structure for your membership plan and fitness goal.</p>
-                    </div>
-                    <button
-                      onClick={() => setWorkoutOpen(false)}
-                      className="rounded-full bg-zinc-800/80 p-3 text-zinc-300 transition hover:bg-zinc-700"
-                    >
-                      <XCircle className="w-5 h-5" />
-                    </button>
-                  </div>
-                  <div className="max-h-[75vh] overflow-y-auto px-8 py-8 text-zinc-300">
-                    {workoutPlanSections.map((section, index) => (
-                      <div key={index} className={index > 0 ? 'mt-6' : ''}>
-                        {section.split('\n').map((line, lineIndex) => (
-                          <p key={lineIndex} className={line.startsWith('-') ? 'text-sm leading-7 text-zinc-300' : 'text-base font-semibold text-white'}>
-                            {line.replace(/^-\s*/, '')}
+                            {line.replace(/^\-\s*/, '')}
                           </p>
                         ))}
                       </div>
@@ -345,3 +296,4 @@ export default function ClientDashboard() {
     </div>
   );
 }
+

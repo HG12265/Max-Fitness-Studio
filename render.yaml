@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: max-fitness-backend
+    env: node
+    branch: main
+    plan: starter
+    buildCommand: cd backend && npm install && npm run build
+    startCommand: cd backend && npm start
+    healthCheckPath: /api/health

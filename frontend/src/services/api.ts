@@ -1,4 +1,4 @@
-const API_URL = '/api';
+const API_URL = import.meta.env.VITE_API_URL || '/api';
 
 const getHeaders = () => {
   const token = localStorage.getItem('token');
@@ -65,6 +65,15 @@ export const api = {
       method: 'PUT',
       headers: getHeaders(),
       body: JSON.stringify(data)
+    });
+    if (!res.ok) throw new Error((await res.json()).error);
+    return res.json();
+  },
+  getWorkoutChart: async (clientId: string, plan: string, period: string) => {
+    const res = await fetch(`${API_URL}/clients/${clientId}/workout-chart`, {
+      method: 'POST',
+      headers: getHeaders(),
+      body: JSON.stringify({ plan, period })
     });
     if (!res.ok) throw new Error((await res.json()).error);
     return res.json();
